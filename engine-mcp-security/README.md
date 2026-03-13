@@ -42,6 +42,11 @@ Other application endpoints are unaffected by this module's filter chains.
 
 ### Basic Auth
 
+To use:
+
+- Add Authorization header to connecting payload.
+- Add `Basic base64(username:password)` to the header value.
+
 Main behavior:
 
 - Requires HTTP Basic Auth on `/mcp/**` and `/sse/**`.
