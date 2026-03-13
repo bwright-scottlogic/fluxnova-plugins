@@ -35,6 +35,11 @@
         <artifactId>swagger-annotations-jakarta</artifactId>
         <version>${swagger.version}</version>
       </dependency>
+      <dependency>
+        <groupId>com.nimbusds</groupId>
+        <artifactId>nimbus-jose-jwt</artifactId>
+        <version>9.37.4</version>
+      </dependency>
     </dependencies>
   </dependencyManagement>
   <dependencies>
@@ -58,7 +63,6 @@
       <groupId>io.swagger.core.v3</groupId>
       <artifactId>swagger-annotations-jakarta</artifactId>
     </dependency>
-    <!--  Security: HTTP Basic Auth  -->
     <dependency>
       <groupId>org.finos.fluxnova.bpm.springboot</groupId>
       <artifactId>fluxnova-bpm-spring-boot-starter-security</artifactId>
