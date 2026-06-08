@@ -1,7 +1,9 @@
 package org.finos.fluxnova.ai.mcp.security.autoconfigure;
 
 import org.finos.fluxnova.ai.mcp.security.permissions.McpSecurityEnginePlugin;
+import org.finos.fluxnova.ai.mcp.security.permissions.McpToolPermissionChecker;
 import org.finos.fluxnova.ai.mcp.security.securityconfigs.SecurityConfig;
+import org.finos.fluxnova.bpm.engine.ProcessEngine;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -11,6 +13,7 @@ import org.springframework.context.annotation.Import;
 import java.util.Arrays;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.mock;
 
 @DisplayName("SecurityMcpAutoConfiguration")
 class SecurityMcpAutoConfigurationTest {
@@ -48,6 +51,26 @@ class SecurityMcpAutoConfigurationTest {
     }
 
     @Test
+    @DisplayName("mcpToolPermissionChecker should return a non-null McpToolPermissionChecker")
+    void mcpToolPermissionChecker_returnsNonNull() {
+        ProcessEngine mockEngine = mock(ProcessEngine.class);
+
+        McpToolPermissionChecker checker = autoConfiguration.mcpToolPermissionChecker(mockEngine);
+
+        assertNotNull(checker);
+    }
+
+    @Test
+    @DisplayName("mcpToolPermissionChecker should return a McpToolPermissionChecker instance")
+    void mcpToolPermissionChecker_returnsCorrectType() {
+        ProcessEngine mockEngine = mock(ProcessEngine.class);
+
+        Object checker = autoConfiguration.mcpToolPermissionChecker(mockEngine);
+
+        assertInstanceOf(McpToolPermissionChecker.class, checker);
+    }
+
+    @Test
     @DisplayName("class should be annotated with @AutoConfigureAfter pointing to FluxnovaBpmAutoConfiguration")
     void class_hasAutoConfigureAfterAnnotation() {
         AutoConfigureAfter annotation = SecurityMcpAutoConfiguration.class
@@ -73,3 +96,4 @@ class SecurityMcpAutoConfigurationTest {
         );
     }
 }
+

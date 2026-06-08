@@ -1,6 +1,7 @@
 package org.finos.fluxnova.ai.mcp.security.autoconfigure;
 
 import org.finos.fluxnova.ai.mcp.security.permissions.McpSecurityEnginePlugin;
+import org.finos.fluxnova.ai.mcp.security.permissions.McpToolPermissionChecker;
 import org.finos.fluxnova.ai.mcp.security.securityconfigs.SecurityConfig;
 import org.finos.fluxnova.bpm.engine.AuthorizationService;
 import org.finos.fluxnova.bpm.engine.IdentityService;
@@ -14,6 +15,7 @@ import org.springframework.boot.test.context.runner.WebApplicationContextRunner;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.oauth2.jwt.JwtDecoder;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
@@ -34,6 +36,14 @@ class SecurityMcpAutoConfigurationIT {
     void registersEnginePluginBean() {
         contextRunner.run(context -> {
             assertThat(context).hasSingleBean(McpSecurityEnginePlugin.class);
+        });
+    }
+
+    @Test
+    @DisplayName("should register McpToolPermissionChecker bean")
+    void registersMcpToolPermissionCheckerBean() {
+        contextRunner.run(context -> {
+            assertThat(context).hasSingleBean(McpToolPermissionChecker.class);
         });
     }
 
@@ -65,6 +75,11 @@ class SecurityMcpAutoConfigurationIT {
             when(engine.getIdentityService()).thenReturn(identityService);
             when(engine.getAuthorizationService()).thenReturn(authorizationService);
             return engine;
+        }
+
+        @Bean
+        JwtDecoder jwtDecoder() {
+            return mock(JwtDecoder.class);
         }
     }
 }

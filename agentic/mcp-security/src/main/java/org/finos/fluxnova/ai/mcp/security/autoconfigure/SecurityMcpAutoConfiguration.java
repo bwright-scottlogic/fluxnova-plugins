@@ -1,7 +1,9 @@
 package org.finos.fluxnova.ai.mcp.security.autoconfigure;
 
 import org.finos.fluxnova.ai.mcp.security.permissions.McpSecurityEnginePlugin;
+import org.finos.fluxnova.ai.mcp.security.permissions.McpToolPermissionChecker;
 import org.finos.fluxnova.ai.mcp.security.securityconfigs.SecurityConfig;
+import org.finos.fluxnova.bpm.engine.ProcessEngine;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.AutoConfigureAfter;
 import org.springframework.context.annotation.Bean;
@@ -15,5 +17,10 @@ public class SecurityMcpAutoConfiguration {
     @Bean
     public McpSecurityEnginePlugin mcpSecurityEnginePlugin() {
         return new McpSecurityEnginePlugin();
+    }
+
+    @Bean
+    public McpToolPermissionChecker mcpToolPermissionChecker(ProcessEngine processEngine) {
+        return new McpToolPermissionChecker(processEngine);
     }
 }
