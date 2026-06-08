@@ -17,6 +17,10 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
+
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
@@ -60,14 +64,47 @@ class McpSecurityEnginePluginTest {
         }
 
         @Test
-        @DisplayName("should register McpPermission enum for resource type 22")
-        void registersPermissionEnum() {
+        @DisplayName("should register McpPermission enum for all three MCP resource types")
+        void registersPermissionEnumsForAllResourceTypes() {
+            plugin.preInit(configuration);
+
+            for (McpResource resource : McpResource.values()) {
+                Class<?> registered = ResourceTypeUtil.getPermissionEnums()
+                        .get(resource.resourceType());
+                assertSame(McpPermission.class, registered,
+                        "McpPermission enum should be registered for resource type "
+                                + resource.resourceType() + " (" + resource.resourceName() + ")");
+            }
+        }
+
+        @Test
+        @DisplayName("should register McpPermission enum for MCP resource type 22")
+        void registersPermissionEnumForMcp() {
             plugin.preInit(configuration);
 
             Class<?> registered = ResourceTypeUtil.getPermissionEnums()
                     .get(McpResource.MCP.resourceType());
-            assertSame(McpPermission.class, registered,
-                    "McpPermission enum should be registered for resource type 22");
+            assertSame(McpPermission.class, registered);
+        }
+
+        @Test
+        @DisplayName("should register McpPermission enum for MCP_PROCESS_TOOLS resource type 23")
+        void registersPermissionEnumForProcessTools() {
+            plugin.preInit(configuration);
+
+            Class<?> registered = ResourceTypeUtil.getPermissionEnums()
+                    .get(McpResource.MCP_PROCESS_TOOLS.resourceType());
+            assertSame(McpPermission.class, registered);
+        }
+
+        @Test
+        @DisplayName("should register McpPermission enum for MCP_TASK_TOOLS resource type 24")
+        void registersPermissionEnumForTaskTools() {
+            plugin.preInit(configuration);
+
+            Class<?> registered = ResourceTypeUtil.getPermissionEnums()
+                    .get(McpResource.MCP_TASK_TOOLS.resourceType());
+            assertSame(McpPermission.class, registered);
         }
     }
 
@@ -97,8 +134,8 @@ class McpSecurityEnginePluginTest {
         }
 
         @Test
-        @DisplayName("should create admin authorization when none exists")
-        void noExistingAuth_createsAdminAuth() {
+        @DisplayName("should create admin authorization for all three resource types when none exist")
+        void noExistingAuth_createsAdminAuthForAllResources() {
             when(processEngine.getProcessEngineConfiguration()).thenReturn(configuration);
             when(configuration.isAuthorizationEnabled()).thenReturn(true);
             when(authorizationQuery.count()).thenReturn(0L);
@@ -107,31 +144,59 @@ class McpSecurityEnginePluginTest {
 
             ArgumentCaptor<AuthorizationEntity> captor =
                     ArgumentCaptor.forClass(AuthorizationEntity.class);
-            verify(authorizationService).saveAuthorization(captor.capture());
+            verify(authorizationService, times(3)).saveAuthorization(captor.capture());
 
-            AuthorizationEntity saved = captor.getValue();
-            assertEquals(Groups.CAMUNDA_ADMIN, saved.getGroupId());
-            assertEquals(McpResource.MCP.resourceType(), saved.getResourceType());
-            assertEquals(Authorization.ANY, saved.getResourceId());
-            assertEquals(Authorization.AUTH_TYPE_GRANT, saved.getAuthorizationType());
+            List<AuthorizationEntity> saved = captor.getAllValues();
+            Set<Integer> resourceTypes = saved.stream()
+                    .map(AuthorizationEntity::getResourceType)
+                    .collect(Collectors.toSet());
+            assertEquals(
+                    Set.of(McpResource.MCP.resourceType(),
+                            McpResource.MCP_PROCESS_TOOLS.resourceType(),
+                            McpResource.MCP_TASK_TOOLS.resourceType()),
+                    resourceTypes,
+                    "Should create authorization for all three MCP resource types"
+            );
         }
 
         @Test
-        @DisplayName("should query for existing admin authorization correctly")
-        void queriesAuthorizationCorrectly() {
+        @DisplayName("all created authorizations should target camunda-admin group")
+        void createdAuth_targetsAdminGroup() {
             when(processEngine.getProcessEngineConfiguration()).thenReturn(configuration);
             when(configuration.isAuthorizationEnabled()).thenReturn(true);
             when(authorizationQuery.count()).thenReturn(0L);
 
             plugin.postProcessEngineBuild(processEngine);
 
-            verify(authorizationQuery).groupIdIn(Groups.CAMUNDA_ADMIN);
-            verify(authorizationQuery).resourceType(McpResource.MCP);
-            verify(authorizationQuery).resourceId(Authorization.ANY);
+            ArgumentCaptor<AuthorizationEntity> captor =
+                    ArgumentCaptor.forClass(AuthorizationEntity.class);
+            verify(authorizationService, times(3)).saveAuthorization(captor.capture());
+
+            for (AuthorizationEntity saved : captor.getAllValues()) {
+                assertEquals(Groups.CAMUNDA_ADMIN, saved.getGroupId());
+                assertEquals(Authorization.ANY, saved.getResourceId());
+                assertEquals(Authorization.AUTH_TYPE_GRANT, saved.getAuthorizationType());
+            }
         }
 
         @Test
-        @DisplayName("should NOT create authorization when one already exists")
+        @DisplayName("should query for existing authorization per resource type")
+        void queriesAuthorizationPerResourceType() {
+            when(processEngine.getProcessEngineConfiguration()).thenReturn(configuration);
+            when(configuration.isAuthorizationEnabled()).thenReturn(true);
+            when(authorizationQuery.count()).thenReturn(0L);
+
+            plugin.postProcessEngineBuild(processEngine);
+
+            verify(authorizationQuery, times(3)).groupIdIn(Groups.CAMUNDA_ADMIN);
+            verify(authorizationQuery).resourceType(McpResource.MCP);
+            verify(authorizationQuery).resourceType(McpResource.MCP_PROCESS_TOOLS);
+            verify(authorizationQuery).resourceType(McpResource.MCP_TASK_TOOLS);
+            verify(authorizationQuery, times(3)).resourceId(Authorization.ANY);
+        }
+
+        @Test
+        @DisplayName("should NOT create authorization when all already exist")
         void existingAuth_doesNotCreate() {
             when(processEngine.getProcessEngineConfiguration()).thenReturn(configuration);
             when(configuration.isAuthorizationEnabled()).thenReturn(true);
@@ -143,7 +208,7 @@ class McpSecurityEnginePluginTest {
         }
 
         @Test
-        @DisplayName("should NOT create authorization when multiple already exist")
+        @DisplayName("should NOT create authorization when multiple already exist per resource")
         void multipleExistingAuth_doesNotCreate() {
             when(processEngine.getProcessEngineConfiguration()).thenReturn(configuration);
             when(configuration.isAuthorizationEnabled()).thenReturn(true);
@@ -155,7 +220,7 @@ class McpSecurityEnginePluginTest {
         }
 
         @Test
-        @DisplayName("created authorization should grant ACCESS permission")
+        @DisplayName("all created authorizations should grant ACCESS permission")
         void createdAuth_grantsAccessPermission() {
             when(processEngine.getProcessEngineConfiguration()).thenReturn(configuration);
             when(configuration.isAuthorizationEnabled()).thenReturn(true);
@@ -165,12 +230,14 @@ class McpSecurityEnginePluginTest {
 
             ArgumentCaptor<AuthorizationEntity> captor =
                     ArgumentCaptor.forClass(AuthorizationEntity.class);
-            verify(authorizationService).saveAuthorization(captor.capture());
+            verify(authorizationService, times(3)).saveAuthorization(captor.capture());
 
-            AuthorizationEntity saved = captor.getValue();
-            // Verify ACCESS was added (the permission bits should include ACCESS value)
-            assertTrue((saved.getPermissions() & McpPermission.ACCESS.getValue()) == McpPermission.ACCESS.getValue(),
-                    "Authorization should grant ACCESS permission");
+            for (AuthorizationEntity saved : captor.getAllValues()) {
+                assertTrue(
+                        (saved.getPermissions() & McpPermission.ACCESS.getValue()) == McpPermission.ACCESS.getValue(),
+                        "Authorization should grant ACCESS permission for resource type " + saved.getResourceType()
+                );
+            }
         }
     }
 }

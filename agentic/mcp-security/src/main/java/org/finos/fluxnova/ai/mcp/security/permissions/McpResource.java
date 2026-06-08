@@ -3,7 +3,9 @@ package org.finos.fluxnova.ai.mcp.security.permissions;
 import org.finos.fluxnova.bpm.engine.authorization.Resource;
 
 public enum McpResource implements Resource {
-    MCP("MCP", 22);
+    MCP("MCP", 22),
+    MCP_PROCESS_TOOLS("MCP_PROCESS_TOOLS", 23),
+    MCP_TASK_TOOLS("MCP_TASK_TOOLS", 24);
 
     String name;
     int id;

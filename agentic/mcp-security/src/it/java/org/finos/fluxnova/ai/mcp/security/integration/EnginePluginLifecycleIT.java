@@ -20,6 +20,8 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.util.List;
+
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
@@ -52,7 +54,7 @@ class EnginePluginLifecycleIT {
     }
 
     @Test
-    @DisplayName("full lifecycle: preInit registers provider, postBuild creates authorization")
+    @DisplayName("full lifecycle: preInit registers provider, postBuild creates authorization for all resources")
     void fullLifecycle_registersAndCreatesAuth() {
         // Phase 1: preInit
         plugin.preInit(configuration);
@@ -63,15 +65,22 @@ class EnginePluginLifecycleIT {
         verify(configuration).setPermissionProvider(providerCaptor.capture());
         McpPermissionProvider registeredProvider = providerCaptor.getValue();
 
-        // Verify the registered provider can resolve MCP permissions
-        assertEquals(McpPermission.ACCESS,
-                registeredProvider.getPermissionForName("ACCESS", McpResource.MCP.resourceType()));
-        assertEquals(McpPermission.NONE,
-                registeredProvider.getPermissionForName("NONE", McpResource.MCP.resourceType()));
+        // Verify the registered provider can resolve MCP permissions for all resource types
+        for (McpResource resource : McpResource.values()) {
+            assertEquals(McpPermission.ACCESS,
+                    registeredProvider.getPermissionForName("ACCESS", resource.resourceType()),
+                    "Provider should resolve ACCESS for resource type " + resource.resourceType());
+            assertEquals(McpPermission.NONE,
+                    registeredProvider.getPermissionForName("NONE", resource.resourceType()),
+                    "Provider should resolve NONE for resource type " + resource.resourceType());
+        }
 
-        // Verify resource type registration
-        assertSame(McpPermission.class,
-                ResourceTypeUtil.getPermissionEnums().get(McpResource.MCP.resourceType()));
+        // Verify resource type registration for all MCP resource types
+        for (McpResource resource : McpResource.values()) {
+            assertSame(McpPermission.class,
+                    ResourceTypeUtil.getPermissionEnums().get(resource.resourceType()),
+                    "McpPermission class should be registered for resource type " + resource.resourceType());
+        }
 
         // Phase 2: postProcessEngineBuild
         when(processEngine.getProcessEngineConfiguration()).thenReturn(configuration);
@@ -85,16 +94,30 @@ class EnginePluginLifecycleIT {
 
         plugin.postProcessEngineBuild(processEngine);
 
-        // Verify authorization was created properly
+        // Verify authorization was created for all three resource types
         ArgumentCaptor<AuthorizationEntity> authCaptor =
                 ArgumentCaptor.forClass(AuthorizationEntity.class);
-        verify(authorizationService).saveAuthorization(authCaptor.capture());
+        verify(authorizationService, times(McpResource.values().length))
+                .saveAuthorization(authCaptor.capture());
 
-        AuthorizationEntity created = authCaptor.getValue();
-        assertEquals(Authorization.AUTH_TYPE_GRANT, created.getAuthorizationType());
-        assertEquals(Groups.CAMUNDA_ADMIN, created.getGroupId());
-        assertEquals(McpResource.MCP.resourceType(), created.getResourceType());
-        assertEquals(Authorization.ANY, created.getResourceId());
+        List<AuthorizationEntity> created = authCaptor.getAllValues();
+        assertEquals(McpResource.values().length, created.size());
+
+        // All authorizations must have GRANT type, CAMUNDA_ADMIN group, and ANY resource id
+        for (AuthorizationEntity auth : created) {
+            assertEquals(Authorization.AUTH_TYPE_GRANT, auth.getAuthorizationType());
+            assertEquals(Groups.CAMUNDA_ADMIN, auth.getGroupId());
+            assertEquals(Authorization.ANY, auth.getResourceId());
+        }
+
+        // Each MCP resource type must be covered
+        java.util.Set<Integer> resourceTypes = created.stream()
+                .map(AuthorizationEntity::getResourceType)
+                .collect(java.util.stream.Collectors.toSet());
+        for (McpResource resource : McpResource.values()) {
+            assertTrue(resourceTypes.contains(resource.resourceType()),
+                    "Authorization should be created for resource type " + resource.resourceType());
+        }
     }
 
     @Test

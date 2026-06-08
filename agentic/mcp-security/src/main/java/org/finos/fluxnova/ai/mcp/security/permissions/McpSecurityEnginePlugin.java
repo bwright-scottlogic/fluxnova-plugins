@@ -15,9 +15,12 @@ public class McpSecurityEnginePlugin extends AbstractProcessEnginePlugin {
     public void preInit(ProcessEngineConfigurationImpl configuration) {
         configuration.setPermissionProvider(new McpPermissionProvider());
 
-        // Register the MCP permission enum so the REST API can resolve resource type 22
-        ResourceTypeUtil.getPermissionEnums()
-                .put(McpResource.MCP.resourceType(), McpPermission.class);
+        // Register the MCP permission enum for all MCP resource types so the REST API
+        // can resolve each resource type to McpPermission
+        for (McpResource resource : McpResource.values()) {
+            ResourceTypeUtil.getPermissionEnums()
+                    .put(resource.resourceType(), McpPermission.class);
+        }
     }
 
     @Override
@@ -28,17 +31,19 @@ public class McpSecurityEnginePlugin extends AbstractProcessEnginePlugin {
 
         AuthorizationService authorizationService = processEngine.getAuthorizationService();
 
-        if (authorizationService.createAuthorizationQuery()
-                .groupIdIn(Groups.CAMUNDA_ADMIN)
-                .resourceType(McpResource.MCP)
-                .resourceId(Authorization.ANY)
-                .count() == 0) {
-            AuthorizationEntity mcpAuth = new AuthorizationEntity(Authorization.AUTH_TYPE_GRANT);
-            mcpAuth.setGroupId(Groups.CAMUNDA_ADMIN);
-            mcpAuth.setResource(McpResource.MCP);
-            mcpAuth.setResourceId(Authorization.ANY);
-            mcpAuth.addPermission(McpPermission.ACCESS);
-            authorizationService.saveAuthorization(mcpAuth);
+        for (McpResource resource : McpResource.values()) {
+            if (authorizationService.createAuthorizationQuery()
+                    .groupIdIn(Groups.CAMUNDA_ADMIN)
+                    .resourceType(resource)
+                    .resourceId(Authorization.ANY)
+                    .count() == 0) {
+                AuthorizationEntity mcpAuth = new AuthorizationEntity(Authorization.AUTH_TYPE_GRANT);
+                mcpAuth.setGroupId(Groups.CAMUNDA_ADMIN);
+                mcpAuth.setResource(resource);
+                mcpAuth.setResourceId(Authorization.ANY);
+                mcpAuth.addPermission(McpPermission.ACCESS);
+                authorizationService.saveAuthorization(mcpAuth);
+            }
         }
     }
 }

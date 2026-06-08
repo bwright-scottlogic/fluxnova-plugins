@@ -7,7 +7,11 @@ public enum McpPermission implements Permission {
     NONE("NONE", 0),
     ACCESS("ACCESS", Integer.MAX_VALUE);
 
-    private static final Resource[] RESOURCES = new Resource[] { McpResource.MCP };
+    private static final Resource[] RESOURCES = new Resource[] {
+            McpResource.MCP,
+            McpResource.MCP_PROCESS_TOOLS,
+            McpResource.MCP_TASK_TOOLS
+    };
 
     private String name;
     private int id;

@@ -5,9 +5,16 @@ import org.finos.fluxnova.bpm.engine.impl.cfg.auth.DefaultPermissionProvider;
 
 public class McpPermissionProvider extends DefaultPermissionProvider {
 
+    private boolean isMcpResourceType(int resourceType) {
+        for (McpResource r : McpResource.values()) {
+            if (r.resourceType() == resourceType) return true;
+        }
+        return false;
+    }
+
     @Override
     public Permission getPermissionForName(String name, int resourceType) {
-        if (resourceType == McpResource.MCP.resourceType()) {
+        if (isMcpResourceType(resourceType)) {
             for (McpPermission p : McpPermission.values()) {
                 if (p.getName().equals(name)) return p;
             }
@@ -17,7 +24,7 @@ public class McpPermissionProvider extends DefaultPermissionProvider {
 
     @Override
     public Permission[] getPermissionsForResource(int resourceType) {
-        if (resourceType == McpResource.MCP.resourceType()) {
+        if (isMcpResourceType(resourceType)) {
             return McpPermission.values();
         }
         return super.getPermissionsForResource(resourceType);
@@ -25,8 +32,8 @@ public class McpPermissionProvider extends DefaultPermissionProvider {
 
     @Override
     public String getNameForResource(int resourceType) {
-        if (resourceType == McpResource.MCP.resourceType()) {
-            return McpResource.MCP.resourceName();
+        for (McpResource r : McpResource.values()) {
+            if (r.resourceType() == resourceType) return r.resourceName();
         }
         return super.getNameForResource(resourceType);
     }

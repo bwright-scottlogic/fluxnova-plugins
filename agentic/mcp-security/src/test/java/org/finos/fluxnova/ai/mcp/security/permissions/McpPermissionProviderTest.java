@@ -5,6 +5,8 @@ import org.finos.fluxnova.bpm.engine.authorization.Resources;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -28,6 +30,22 @@ class McpPermissionProviderTest {
         @DisplayName("should return McpPermission.NONE for MCP resource type")
         void returnsNoneForMcpResource() {
             Permission perm = provider.getPermissionForName("NONE", McpResource.MCP.resourceType());
+            assertSame(McpPermission.NONE, perm);
+        }
+
+        @ParameterizedTest
+        @EnumSource(McpResource.class)
+        @DisplayName("should return McpPermission.ACCESS for all MCP resource types")
+        void returnsAccessForAllMcpResourceTypes(McpResource resource) {
+            Permission perm = provider.getPermissionForName("ACCESS", resource.resourceType());
+            assertSame(McpPermission.ACCESS, perm);
+        }
+
+        @ParameterizedTest
+        @EnumSource(McpResource.class)
+        @DisplayName("should return McpPermission.NONE for all MCP resource types")
+        void returnsNoneForAllMcpResourceTypes(McpResource resource) {
+            Permission perm = provider.getPermissionForName("NONE", resource.resourceType());
             assertSame(McpPermission.NONE, perm);
         }
 
@@ -75,6 +93,14 @@ class McpPermissionProviderTest {
             assertEquals(2, perms.length);
         }
 
+        @ParameterizedTest
+        @EnumSource(McpResource.class)
+        @DisplayName("should return all McpPermission values for all MCP resource types")
+        void returnsAllMcpPermissionsForAllResourceTypes(McpResource resource) {
+            Permission[] perms = provider.getPermissionsForResource(resource.resourceType());
+            assertArrayEquals(McpPermission.values(), perms);
+        }
+
         @Test
         @DisplayName("should delegate to super for non-MCP resource types")
         void delegatesToSuperForNonMcpResource() {
@@ -95,6 +121,28 @@ class McpPermissionProviderTest {
         void returnsMcpName() {
             String name = provider.getNameForResource(McpResource.MCP.resourceType());
             assertEquals("MCP", name);
+        }
+
+        @Test
+        @DisplayName("should return 'MCP_PROCESS_TOOLS' for process tools resource type")
+        void returnsMcpProcessToolsName() {
+            String name = provider.getNameForResource(McpResource.MCP_PROCESS_TOOLS.resourceType());
+            assertEquals("MCP_PROCESS_TOOLS", name);
+        }
+
+        @Test
+        @DisplayName("should return 'MCP_TASK_TOOLS' for task tools resource type")
+        void returnsMcpTaskToolsName() {
+            String name = provider.getNameForResource(McpResource.MCP_TASK_TOOLS.resourceType());
+            assertEquals("MCP_TASK_TOOLS", name);
+        }
+
+        @ParameterizedTest
+        @EnumSource(McpResource.class)
+        @DisplayName("should return the correct resource name for all MCP resource types")
+        void returnsCorrectNameForAllMcpResourceTypes(McpResource resource) {
+            String name = provider.getNameForResource(resource.resourceType());
+            assertEquals(resource.resourceName(), name);
         }
 
         @Test

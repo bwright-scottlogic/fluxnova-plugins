@@ -15,22 +15,22 @@ class McpPermissionTest {
         // NOTE: The Permission contract states getValue() should return a power of 2.
         // Using Integer.MAX_VALUE makes ACCESS equivalent to the built-in Permissions.ALL,
         // which means granting ACCESS sets ALL permission bits. This is fine for the
-        // current implementation of this resource, which only has a binary 
-        // access/no-access model, but would prevent adding
-        // more granular permissions (e.g. READ_TOOLS, CALL_TOOLS) in the future since
-        // ACCESS would implicitly grant them all.
-        // Consider using a single power-of-2 value (e.g., 2) if finer-grained
-        // permissions may be needed later.
+        // current implementation of this resource, which only has a binary
+        // access/no-access model per resource type — granularity comes from the resource
+        // type (MCP, MCP_PROCESS_TOOLS, MCP_TASK_TOOLS), not from permission bits.
         assertEquals(Integer.MAX_VALUE, McpPermission.ACCESS.getValue());
     }
 
     @Test
-    @DisplayName("both permissions should reference McpResource.MCP")
-    void permissions_referenceCorrectResourceType() {
+    @DisplayName("both permissions should reference all three MCP resource types")
+    void permissions_referenceAllMcpResourceTypes() {
         for (McpPermission perm : McpPermission.values()) {
             Resource[] types = perm.getTypes();
-            assertEquals(1, types.length, "Each permission should link to exactly one resource");
+            assertEquals(3, types.length,
+                    "Each permission should link to all three MCP resource types");
             assertSame(McpResource.MCP, types[0]);
+            assertSame(McpResource.MCP_PROCESS_TOOLS, types[1]);
+            assertSame(McpResource.MCP_TASK_TOOLS, types[2]);
         }
     }
 
