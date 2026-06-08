@@ -19,18 +19,20 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
+import org.springframework.security.oauth2.jwt.BadJwtException;
+import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.util.Base64;
 import java.util.Collections;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
@@ -50,20 +52,16 @@ class McpSecurityFilterChainIT {
     @Autowired
     private ProcessEngine processEngine;
 
-    private static String basicAuth(String user, String pass) {
-        return "Basic " + Base64.getEncoder().encodeToString((user + ":" + pass).getBytes());
-    }
+    @Autowired
+    private JwtDecoder jwtDecoder;
 
-    private void stubIdentityForUser(String userId, boolean validPassword,
+    private void stubIdentityForUser(String userId,
                                      List<String> groupIds, List<String> tenantIds,
                                      boolean mcpAuthorized) {
         IdentityService identityService = processEngine.getIdentityService();
         AuthorizationService authorizationService = processEngine.getAuthorizationService();
 
-        // Reset mocks
         reset(identityService, authorizationService);
-
-        when(identityService.checkPassword(eq(userId), anyString())).thenReturn(validPassword);
 
         // Group query chain
         GroupQuery groupQuery = mock(GroupQuery.class);
@@ -106,36 +104,34 @@ class McpSecurityFilterChainIT {
         }
 
         @Test
-        @DisplayName("should return 401 when invalid credentials provided")
-        void invalidCredentials_returns401() throws Exception {
-            IdentityService identityService = processEngine.getIdentityService();
-            reset(identityService);
-            when(identityService.checkPassword("admin", "wrong")).thenReturn(false);
+        @DisplayName("should return 401 when an invalid Bearer token is provided")
+        void invalidToken_returns401() throws Exception {
+            doThrow(new BadJwtException("Invalid token")).when(jwtDecoder).decode(anyString());
 
             mockMvc.perform(get("/mcp/test")
-                            .header("Authorization", basicAuth("admin", "wrong")))
+                            .header("Authorization", "Bearer invalid.token.here"))
                     .andExpect(status().isUnauthorized());
         }
 
         @Test
         @DisplayName("should return 403 when authenticated but not authorized for MCP")
         void authenticatedButNotAuthorized_returns403() throws Exception {
-            stubIdentityForUser("viewer", true,
+            stubIdentityForUser("viewer",
                     List.of("viewers"), Collections.emptyList(), false);
 
             mockMvc.perform(get("/mcp/test")
-                            .header("Authorization", basicAuth("viewer", "pass")))
+                            .with(jwt().jwt(j -> j.subject("viewer"))))
                     .andExpect(status().isForbidden());
         }
 
         @Test
         @DisplayName("should return 200 when authenticated and authorized")
         void authenticatedAndAuthorized_returns200() throws Exception {
-            stubIdentityForUser("admin", true,
+            stubIdentityForUser("admin",
                     List.of("fluxnova-admin"), Collections.emptyList(), true);
 
             mockMvc.perform(get("/mcp/test")
-                            .header("Authorization", basicAuth("admin", "pass")))
+                            .with(jwt().jwt(j -> j.subject("admin"))))
                     .andExpect(status().isOk())
                     .andExpect(content().string("mcp-ok"));
         }
@@ -143,11 +139,11 @@ class McpSecurityFilterChainIT {
         @Test
         @DisplayName("should set engine authentication context for authorized request")
         void authorizedRequest_setsEngineAuthContext() throws Exception {
-            stubIdentityForUser("admin", true,
+            stubIdentityForUser("admin",
                     List.of("fluxnova-admin", "developers"), List.of("tenant-1"), true);
 
             mockMvc.perform(get("/mcp/test")
-                    .header("Authorization", basicAuth("admin", "pass")));
+                    .with(jwt().jwt(j -> j.subject("admin"))));
 
             IdentityService identityService = processEngine.getIdentityService();
             verify(identityService).setAuthentication(
@@ -160,11 +156,11 @@ class McpSecurityFilterChainIT {
         @Test
         @DisplayName("should clear engine authentication context after request")
         void clearsEngineAuth() throws Exception {
-            stubIdentityForUser("admin", true,
+            stubIdentityForUser("admin",
                     List.of("fluxnova-admin"), Collections.emptyList(), true);
 
             mockMvc.perform(get("/mcp/test")
-                    .header("Authorization", basicAuth("admin", "pass")));
+                    .with(jwt().jwt(j -> j.subject("admin"))));
 
             verify(processEngine.getIdentityService()).clearAuthentication();
         }
@@ -185,11 +181,11 @@ class McpSecurityFilterChainIT {
         @Test
         @DisplayName("should return 200 when authenticated and authorized")
         void authenticatedAndAuthorized_returns200() throws Exception {
-            stubIdentityForUser("admin", true,
+            stubIdentityForUser("admin",
                     List.of("fluxnova-admin"), Collections.emptyList(), true);
 
             mockMvc.perform(get("/sse/test")
-                            .header("Authorization", basicAuth("admin", "pass")))
+                            .with(jwt().jwt(j -> j.subject("admin"))))
                     .andExpect(status().isOk())
                     .andExpect(content().string("sse-ok"));
         }
@@ -215,11 +211,11 @@ class McpSecurityFilterChainIT {
         @Test
         @DisplayName("should allow POST to /mcp/** without CSRF token (CSRF disabled)")
         void postWithoutCsrf_allowed() throws Exception {
-            stubIdentityForUser("admin", true,
+            stubIdentityForUser("admin",
                     List.of("fluxnova-admin"), Collections.emptyList(), true);
 
             mockMvc.perform(post("/mcp/action")
-                            .header("Authorization", basicAuth("admin", "pass"))
+                            .with(jwt().jwt(j -> j.subject("admin")))
                             .contentType(MediaType.APPLICATION_JSON)
                             .content("{}"))
                     .andExpect(status().isOk())
@@ -234,11 +230,11 @@ class McpSecurityFilterChainIT {
         @Test
         @DisplayName("should not create HTTP session (stateless)")
         void noSession() throws Exception {
-            stubIdentityForUser("admin", true,
+            stubIdentityForUser("admin",
                     List.of("fluxnova-admin"), Collections.emptyList(), true);
 
             mockMvc.perform(get("/mcp/test")
-                            .header("Authorization", basicAuth("admin", "pass")))
+                            .with(jwt().jwt(j -> j.subject("admin"))))
                     .andExpect(request -> assertNull(
                             request.getRequest().getSession(false),
                             "No HTTP session should be created (stateless mode)"));
@@ -257,6 +253,11 @@ class McpSecurityFilterChainIT {
             when(engine.getIdentityService()).thenReturn(identityService);
             when(engine.getAuthorizationService()).thenReturn(authorizationService);
             return engine;
+        }
+
+        @Bean
+        JwtDecoder jwtDecoder() {
+            return mock(JwtDecoder.class);
         }
 
         @Bean

@@ -15,6 +15,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
 import org.springframework.mock.web.MockHttpServletRequest;
+import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -34,14 +35,10 @@ class SecurityConfigTest {
     private IdentityService identityService;
 
     @Test
-    @DisplayName("constructor should create filter and auth provider from process engine")
+    @DisplayName("constructor should create engine context filter from process engine")
     void constructor_createsComponents() {
-        // SecurityConfig constructor calls processEngine.getIdentityService()
-        // only indirectly through EngineBasicAuthProvider, which stores the engine
-        // reference. The identityService mock is unused here.
-
-        // Should not throw — verifies that the constructor successfully creates both
-        // EngineBasicAuthProvider and EngineAuthenticationContextFilter
+        // SecurityConfig constructor creates EngineAuthenticationContextFilter.
+        // No processEngine methods are called at construction time.
         SecurityConfig config = new SecurityConfig(processEngine);
 
         assertNotNull(config);
@@ -92,6 +89,11 @@ class SecurityConfigTest {
                 when(engine.getIdentityService()).thenReturn(identityService);
                 when(engine.getAuthorizationService()).thenReturn(authorizationService);
                 return engine;
+            }
+
+            @Bean
+            JwtDecoder jwtDecoder() {
+                return mock(JwtDecoder.class);
             }
 
             @Bean
